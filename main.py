@@ -2,7 +2,6 @@ import discord
 import os
 import datetime
 from discord.ext import commands
-from discord.utils import get
 from keep_alive import keep_alive
 from access_json import *
 from set_up_field import *
@@ -14,6 +13,7 @@ client = commands.Bot(command_prefix = "f!")
 
 @client.event
 async def on_ready():
+  await client.change_presence(activity=discord.Game(name="prototype... f!h to get help"))
   print("Ready!")
 
 # HELP
@@ -40,8 +40,8 @@ async def help(ctx, *specs):
 
     em.add_field(name = "Participant Commands", value = "For tournament participants", inline = False)
     em.add_field(name = "f!ta [o, c]", value = "VIEW TOURNAMENTS\nf!ta to show all tournaments\nf!ta o to show all open tournaments\nf!ta c to show all closed tournaments")
-    em.add_field(name = "f!ts <ID CODE> [Deck #]", value = "SUBMIT DECK\nAdd deck to tournament with id <ID CODE> at place [DECK #], or if [] left blank, the first closest space")
-    em.add_field(name = "f!tdcl <ID CODE> [DECK #]", value = "CLEAR DECK\nf!tdcl to clear all decks\nf!tdcl [DECK #] to remove the [DECK #]th deck on the list")
+    em.add_field(name = "f!ts <ID CODE> [Deck #]", value = "SUBMIT DECK\nAdd deck to tournament with id <ID CODE> at place [DECK #], or if [] left blank, the first closest space\nREMINDER: You must reprint this to submit another deck!")
+    em.add_field(name = "f!tdcl <ID CODE> [DECK #s]", value = "CLEAR DECK\nf!tdcl to clear all decks\nf!tdcl [DECK #] to remove the [DECK #s]th deck on the list")
     em.add_field(name = "f!tdl <ID CODE> <@PERSON>", value = "VIEW DECKLIST\nView the given person's decklist for the tournament")
 
     await ctx.send(embed = em)
@@ -246,6 +246,16 @@ async def submit_deck(ctx, code, n = "-1"):
   decks = await get_decks()
 
   urls = decks[code][str(ctx.author.id)].split("$http")
+  sub = 0
+  for url in urls:
+    if url == "":
+      continue
+    sub += 1
+  
+  if n == "-1" and (int(codes[code]["decks"]) <= sub):
+    em = discord.Embed(title = "Unsuccessful", description = "You have reached the maximum number of decks.")
+    await ctx.send(embed = em)
+    return
 
   if n == "-1":
     placed = False
@@ -296,7 +306,7 @@ async def remove_deck(ctx, code, *n):
 
   urls = decks[code][str(ctx.author.id)].split("$http")
   for x in n:
-    if x.isdigit():
+    if x.isdigit() and int(x) <= int(codes[code]["decks"]):
       urls[int(x)-1] = ""
       success.append(x)
 
@@ -328,15 +338,6 @@ async def display_decks(ctx, code, member : discord.Member):
     return
     
   i = 0
-
-  #for url in urls:
-  #i += 1
-  #if url == "":
-    #continue
-  #em = discord.Embed(title = "Deck {}".format(str(i)))
-  #em.set_image(url = "http" + url)
-  #await ctx.send(embed = em)
-  
   imgs = []
 
   for url in urls:
@@ -344,12 +345,12 @@ async def display_decks(ctx, code, member : discord.Member):
     if url == "":
       continue
     r = requests.get("http" + url, stream = True)
-    imageName = "img" + str(i) + ".jpg"
+    imageName = "res/img" + str(i) + ".jpg"
 
     with open(imageName, 'wb') as f:
       shutil.copyfileobj(r.raw, f)
 
-    imgs.append(Image.open("img" + str(i) + ".jpg"))
+    imgs.append(Image.open("res/img" + str(i) + ".jpg"))
   
   widths, heights = zip(*(i.size for i in imgs))
 
@@ -361,13 +362,12 @@ async def display_decks(ctx, code, member : discord.Member):
   for im in imgs:
     new_im.paste(im, (x_offset,0))
     x_offset += im.size[0]
-  new_im.save('decks.jpg')
+  new_im.save('res/decks.jpg')
 
-  f = discord.File("decks.jpg")
+  f = discord.File("res/decks.jpg")
   em = discord.Embed(title = "{}'s Decks".format(member.name))
-  em.set_image(url="attachment://decks.jpg")
+  em.set_image(url="attachment://res/decks.jpg")
   await ctx.send(embed = em, file = f)
-
 
 keep_alive()
 client.run(os.environ['TOKEN'])
