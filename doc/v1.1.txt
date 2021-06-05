@@ -1,0 +1,35 @@
+VERSION: 1.1 
+VERSION CONTROL NAME: v1.1
+COMMIT DATE: JUNE 3 2021
+
+DATABASE:
+  t_codes.json
+    [NEW] Admins Field
+      admins that can change the fields of the the tournament
+
+Tournament Commands:
+  Organizer Commands:
+    [NEW] f!torgs <ID CODE> <MEMBERS>
+      adds admins to the list of admins for the given tournament
+      Constraints: tournament must exist, request must come from an admin
+    
+    [NEW] f!tro <ID CODE> <MEMBERS>
+      removes members from admin list for the given tournament
+      Constraints: tournament must exist
+
+    [NEW] f!tdf <OLD CODE> <NEW CODE>
+      creates a new tournament with the name, max # decks, admins as the tournament with <OLD CODE>
+      Constraints: old tournament must exist, new code cannot be the same code as and existing tournament, request must come from an admin
+
+    [NEW] Constraint to {ALL}: request must come from an admin
+
+  Participant Commands:
+    f!dl <ID CODE> [@MEMBER]
+      [NEW] Variation:
+        f!tdl <ID CODE> 
+          view your own sumbitted decks
+    
+    [NEW] f!cd <FROM CODE> <TO CODES>
+      duplicates all decklists from first given code to other codes
+      reduces number of decks if needed
+      Constraints: FROM tournament must exist

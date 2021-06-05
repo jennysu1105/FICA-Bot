@@ -1,11 +1,11 @@
 VERSION: 1.0b 
 VERSION CONTROL NAME: v1.0b
-DATE: JUNE 2 2021
+COMMIT DATE: JUNE 2 2021
 
 DOCUMENTATION:
   [new] README.TXT
 
-TOURNAMENT COMMANDS:
-  PARTICIPANT COMMANDS:
+Tournament Commands:
+  Participant Commands:
     [BUG FIX] f!tdcl <ID CODE> [DECK #]
       exception does not occur when x is greater than the max amount of deck registrations to tournament

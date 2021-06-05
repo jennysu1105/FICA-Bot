@@ -7,6 +7,7 @@ from access_json import *
 from set_up_field import *
 import requests
 import shutil
+from help import *
 from PIL import Image
 
 client = commands.Bot(command_prefix = "f!")
@@ -20,32 +21,13 @@ async def on_ready():
 @client.command(name = "h")
 async def help(ctx, *specs):
   if len(specs) == 0:
-    em = discord.Embed(title = "General Help", description = "f!h <type> for more indepth help.")
-    em.add_field(name = "f!h t", value = "Tournament related commands")
-
-    await ctx.send(embed = em)
-    return
+    em = await general_help()
   
   if specs[0].lower() == "t":
-    em = discord.Embed(title = "Tournament Commands", description = "Tournament related commands.")
+    em = await tournament_help()
 
-    em.add_field(name = "Organizational Commands", value = "For tournament organizers", inline = False)
-    em.add_field(name = "f!tn <ID CODE> <NAME>", value = "NEW TOURNAMENT\nCreate a new tournament with an access code of <ID CODE> (unique) and called <NAME>")
-    em.add_field(name = "f!td <ID CODE> <DATE>", value = "SET DATE\nSet the date for the tournament")
-    em.add_field(name = "f!md <ID CODE> <MAX # DECKS", value = "SET MAX # DECK\nSet the maximum number of decks a player can submit")
-    em.add_field(name = "f!w <ID CODE> <URL>", value = "SET WEBSITE\nSets the website for the tournament related to the <ID CODE>")
-    em.add_field(name = "f!tc <ID CODE>", value = "CLOSE TOURNAMENT\nSwitches tournament status to CLOSED")
-    em.add_field(name = "f!to <ID CODE>", value = "REOPEN TOURNAMENT\nSwitches tournament status to OPEN")
-    em.add_field(name = "f!tr <ID CODE>", value = "REMOVE TOURNAMENT\nDeletes the tournament with <ID CODE>")
-
-    em.add_field(name = "Participant Commands", value = "For tournament participants", inline = False)
-    em.add_field(name = "f!ta [o, c]", value = "VIEW TOURNAMENTS\nf!ta to show all tournaments\nf!ta o to show all open tournaments\nf!ta c to show all closed tournaments")
-    em.add_field(name = "f!ts <ID CODE> [Deck #]", value = "SUBMIT DECK\nAdd deck to tournament with id <ID CODE> at place [DECK #], or if [] left blank, the first closest space\nREMINDER: You must reprint this to submit another deck!")
-    em.add_field(name = "f!tdcl <ID CODE> [DECK #s]", value = "CLEAR DECK\nf!tdcl to clear all decks\nf!tdcl [DECK #] to remove the [DECK #s]th deck on the list")
-    em.add_field(name = "f!tdl <ID CODE> <@PERSON>", value = "VIEW DECKLIST\nView the given person's decklist for the tournament")
-
-    await ctx.send(embed = em)
-    return
+  await ctx.send(embed = em)
+  return
 
 # TOURNAMENT INFORMATION RELATED COMMANDS
   # ADMIN COMMANDS
@@ -64,17 +46,50 @@ async def create_tournament(ctx, code, *name):
 
   codes[code]["name"] = " ".join(name)
   codes[code]["status"] = "OPEN"
+  codes[code]["admins"] = str(ctx.author.id)
 
   await save_t_codes(codes)
   em = discord.Embed(title = "Success", description = "{} has been created under code: {}".format(codes[code]["name"], code))
   await ctx.send(embed = em)
 
-@client.command(name = "td")
+@client.command(name = "tdf", pass_context = True)
+async def duplicate_format(ctx, old, new):
+  old = old.upper()
+  new = new.upper()
+  codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, old):
+    return
+
+  if new in codes:
+    em = discord.Embed(title = "Unsuccessful", description = "{} already exists".format(new))
+    await ctx.send(embed = em)
+    return
+  
+  await open_t_code(new)
+  await open_code_decks(new)
+
+  codes = await get_t_codes()
+
+  codes[new]["name"] = codes[old]["name"]
+  codes[new]["status"] = "OPEN"
+  codes[new]["admins"] = codes[old]["admins"]
+  codes[new]["decks"] = codes[old]["decks"]
+
+  await save_t_codes(codes)
+  em = discord.Embed(title = "Success", description = "{}'s format has been duplicated to {}".format(old, new))
+  await ctx.send(embed = em)
+
+@client.command(name = "td", pass_context = True)
 async def set_tournament_date(ctx, code, *d):
   code = code.upper()
   d = " ".join(d)
 
   codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
+
   if await check_c(ctx, codes, code):
     return
 
@@ -87,8 +102,11 @@ async def set_tournament_date(ctx, code, *d):
 @client.command(name = "tmd")
 async def set_max_decks(ctx, code, d):
   code = code.upper()
-
   codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
+
   if await check_c(ctx, codes, code):
     return
 
@@ -106,8 +124,11 @@ async def set_max_decks(ctx, code, d):
 @client.command(name = "tw")
 async def set_website(ctx, code, w):
   code = code.upper()
-
   codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
+
   if await check_c(ctx, codes, code):
     return
   
@@ -117,10 +138,59 @@ async def set_website(ctx, code, w):
   em = discord.Embed(title = "Success", description = "{} website set to {}".format(code, w))
   await ctx.send(embed = em)
 
+@client.command(name = "torgs")
+async def add_organizers(ctx, code, *members : discord.Member):
+  code = code.upper()
+  codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
+
+  if await check_c(ctx, codes, code):
+    return
+
+  admins = codes[code]["admins"].split("$")
+  success = []
+  for m in members:
+    if str(m.id) not in admins:
+      admins.append(str(m.id))
+      success.append(m.name)
+  
+  codes[code]["admins"] = "$".join(admins)
+  await save_t_codes(codes)
+
+  if success == []:
+    em = discord.Embed(title = "Success", description = "All are already admins")
+  else:
+    em = discord.Embed(title = "Success", description = "{} are now organizers of {}".format(", ".join(success), code))
+  await ctx.send(embed = em)
+
+@client.command(name = "tro")
+async def remove_organizers(ctx, code, *members : discord.Member):
+  code = code.upper()
+  codes = await get_t_codes()
+
+  if await check_c(ctx, codes, code):
+    return
+
+  admins = codes[code]["admins"].split("$")
+  for m in members:
+    admins.remove(str(m.id))
+
+  codes[code]["admins"] = "$".join(admins)
+  await save_t_codes(codes)
+
+  em = discord.Embed(title = "Success", description = "{} are not organizers of {} anymore".format(", ".join(list(map(lambda x: x.name, members))), code))
+  await ctx.send(embed = em)
+
 @client.command(name = "tc")
 async def close_tournament(ctx, code):
   code = code.upper()
   codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
+
   if await check_c(ctx, codes, code):
     return
   
@@ -133,6 +203,9 @@ async def close_tournament(ctx, code):
 async def open_tournament(ctx, code):
   code = code.upper()
   codes = await get_t_codes()
+
+  if not await check_admin(ctx, codes, code):
+    return
 
   if await check_c(ctx, codes, code):
     return
@@ -157,6 +230,9 @@ async def remove_tournament(ctx, code):
   codes = await get_t_codes()
   decks = await get_decks()
 
+  if not await check_admin(ctx, codes, code):
+    return
+    
   if await check_c(ctx, codes, code):
     return
   
@@ -184,7 +260,7 @@ async def view_tournament(ctx, f = ""):
 
     for c in codes:
       if codes[c]["status"] == "OPEN":
-        em = await set_up_t_full(codes, c, em)
+        em = await set_up_t_full(client, codes, c, em)
 
     if f == "o":
       await ctx.send(embed = em)
@@ -199,7 +275,7 @@ async def view_tournament(ctx, f = ""):
 
     for c in codes:
       if codes[c]["status"] == "CLOSED":
-        em = await set_up_t_full(codes, c, em)
+        em = await set_up_t_full(client, codes, c, em)
 
     if f == "c":
       await ctx.send(embed = em)
@@ -315,15 +391,53 @@ async def remove_deck(ctx, code, *n):
 
   em = discord.Embed(title = "Success", description = "Deck(s) {} has been cleared".format(", ".join(success)))
   await ctx.send(embed = em)  
-    
+
+@client.command(name = "tcd")
+async def duplicate_deck(ctx, fro, *to):
+  fro = fro.upper()
+  to = list(map(lambda x:x.upper(), to))
+
+  codes = await get_t_codes()
+
+  if await check_c(ctx, codes, fro):
+    return
+  
+  valid = []
+  for c in to:
+    if c not in codes:
+      continue
+    valid.append(c)
+
+  await open_user_decks(fro, ctx.author)
+  for c in valid:
+    await open_user_decks(c, ctx.author)
+  decks = await get_decks()
+
+  for c in valid:
+    l = decks[fro][str(ctx.author.id)].split("$http")
+    l = list(filter(lambda a: a != "", l))
+    if codes[c]["decks"] != "TBH":
+      if len(l) > int(codes[c]["decks"]):
+        l = l[:int(codes[c]["decks"])]
+    decks[c][str(ctx.author.id)] = "$http".join(l)
+
+  await save_decks(decks)
+  em = discord.Embed(title = "Success", description = "Decklist of {} had been copied to {}".format(fro, ", ".join(valid)))
+  await ctx.send(embed = em)
+
 @client.command(name = "tdl")
-async def display_decks(ctx, code, member : discord.Member):
+async def display_decks(ctx, code, *member : discord.Member):
   code = code.upper()
   codes = await get_t_codes()
 
   if await check_c(ctx, codes, code):
     return
   
+  if len(member) == 0:
+    member = ctx.author
+  else:
+    member = member[0]
+
   decks = await get_decks()
   if str(member.id) not in decks[code]:
     em = discord.Embed(title = "Unsuccessful", description = "{} has not submitted any decks yet".format(member.name))

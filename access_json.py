@@ -1,11 +1,11 @@
 import json
 
 async def get_t_codes():
-  with open("t_codes.json", 'r') as f:
+  with open("data/t_codes.json", 'r') as f:
     return json.load(f)
 
 async def save_t_codes(t_codes):
-  with open("t_codes.json", "w") as f:
+  with open("data/t_codes.json", "w") as f:
     json.dump(t_codes, f)
 
 async def open_t_code(code):
@@ -17,18 +17,18 @@ async def open_t_code(code):
     codes[code] = {}
     codes[code]["date"] = "TBD"
     codes[code]["decks"] = "TBD"
-    codes[code]["web"] = "NA"
+    codes[code]["web"] = "N/A"
 
   await save_t_codes(codes)
 
   return True
 
 async def get_decks():
-  with open("decks.json", 'r') as f:
+  with open("data/decks.json", 'r') as f:
     return json.load(f)
 
 async def save_decks(decks):
-  with open("decks.json", "w") as f:
+  with open("data/decks.json", "w") as f:
     json.dump(decks, f)
 
 async def open_code_decks(code):

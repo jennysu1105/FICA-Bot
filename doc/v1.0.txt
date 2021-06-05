@@ -1,6 +1,6 @@
 VERSION: 1.0 
 VERSION CONTROL NAME: initial commit
-DATE: JUNE 2 2021
+COMMIT DATE: JUNE 2 2021
 
 Help Commands:
   f!h 
@@ -17,6 +17,7 @@ Tournament Commands:
   Organizer Commands:
     f!tn <ID CODE> <NAME>
       creates a new tournament with id and name with a blank template
+      Constraints: new code cannot be the same code as and existing tournament
 
     f!td <ID CODE> <DATE>
       sets a date for the given tournament
